@@ -40,7 +40,7 @@ def sniffing():
             sys.exit()
     else:
         print("Total Packet: %s" %(count-1))
-        file_name = input("Enter File Name: ")
+        file_name = str(input("Enter File Name: ")+"pcap")
         wrpcap(str(file_name), pcap_file)
 
 
@@ -93,7 +93,7 @@ def showPacket(packet):
 
 def check_mac():
 
-  net ='192.168.35.1/24' # ip 대역 설정
+  net ='192.168.4.1/24' # ip 대역 설정
 
   ans, noans = scapy.layers.l2.arping(net, timeout=1, verbose=True)
 
@@ -114,10 +114,8 @@ def check_mac():
       time.sleep(0.2)
 
 thread_1 = threading.Thread(target = check_mac)
-thread_2 = threading.Thread(target = sniffing)
 
 thread_1.start()
-thread_2.start()
 
 time.sleep(10)
 print(user_mac_list)
