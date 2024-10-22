@@ -61,6 +61,7 @@ def threaded(client_socket, addr, key):
                 
                 # 올바른 암호화 메시지를 받으면 MAC 주소를 저장
                 client_mac = get_mac_address(client_ip)
+                print("client mac:" + client_mac)
                 if client_mac:
                     save_mac_address(client_mac)
                     print(f"MAC address {client_mac} saved to file.")
