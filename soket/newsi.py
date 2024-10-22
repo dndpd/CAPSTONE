@@ -34,10 +34,6 @@ def get_mac_address(ip_address):
         print(f"Error reading /proc/net/arp: {e}")
         return None
 
-# MAC 주소를 파일로 저장하는 함수
-def save_mac_address(mac_address):
-    with open("banned_clients_mac.txt", "a") as file:
-        file.write(f"{mac_address}\n")
 
 # txt 파일에서 연결 해제된 MAC 주소 읽기
 def get_key_by_mac(mac_address):
@@ -64,8 +60,7 @@ def threaded(client_socket, addr, key):
     client_ip = addr[0]
     client_mac = get_mac_address(client_ip)
     if client_mac:
-        save_mac_address(client_mac)
-        print(f"MAC address {client_mac} saved to file.")
+        print(f"Client MAC Address: {client_mac}")
     else:
         print(f"Could not retrieve MAC Address for IP: {client_ip}")
         client_socket.close()
