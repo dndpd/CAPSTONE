@@ -1,43 +1,46 @@
 import socket
 import threading
 import hashlib
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+import os
 
-# 데이터를 SHA-256으로 해싱하는 함수
-def hash_data(data):
-    sha256 = hashlib.sha256()
-    sha256.update(data)
-    return sha256.hexdigest()
+# AES 암호화 및 복호화 함수
+def encrypt_data(key, plaintext):
+    iv = os.urandom(16)  # Initialization Vector (IV)
+    cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=default_backend())
+    encryptor = cipher.encryptor()
+    ciphertext = encryptor.update(plaintext.encode()) + encryptor.finalize()
+    return iv + ciphertext  # IV를 함께 전송
 
-def threaded(client_socket, addr):
-    print('Connected by: ', addr[0], ':', addr[1])
+def decrypt_data(key, ciphertext):
+    iv = ciphertext[:16]
+    cipher = Cipher(algorithms.AES(key), modes.CFB(iv), backend=default_backend())
+    decryptor = cipher.decryptor()
+    plaintext = decryptor.update(ciphertext[16:]) + decryptor.finalize()
+    return plaintext.decode()
+
+def threaded(client_socket, addr, key):
+    print(f"Connected by: {addr[0]}:{addr[1]}")
 
     while True:
         try:
-            data = client_socket.recv(1024)  # 데이터를 받음
+            data = client_socket.recv(1024)
             if not data:
-                print('Disconnected by ' + addr[0], ':', addr[1])
+                print(f"Disconnected by {addr[0]}:{addr[1]}")
                 break
 
-            # 받은 데이터를 해싱
-            received_hash = data.decode().split(':')[0]
-            message = ':'.join(data.decode().split(':')[1:]).encode()
+            # 데이터를 복호화
+            decrypted_message = decrypt_data(key, data)
+            print(f"Received from {addr[0]}:{addr[1]}: {decrypted_message}")
 
-            # 받은 메시지를 다시 해싱하여 비교
-            calculated_hash = hash_data(message)
-
-            if received_hash == calculated_hash:
-                print(f"Received valid data from {addr[0]}:{addr[1]}: {message.decode()}")
-            else:
-                print(f"Hash mismatch from {addr[0]}:{addr[1]}. Possible data corruption.")
-
-            # 전송할 데이터를 해싱한 뒤 전송
-            response = "Server received your message.".encode()
-            response_hash = hash_data(response)
-            client_socket.send(f"{response_hash}:{response.decode()}".encode())
+            # 응답 메시지를 암호화하여 전송
+            response = "Server received your message."
+            encrypted_response = encrypt_data(key, response)
+            client_socket.send(encrypted_response)
         
         except ConnectionResetError as e:
-            print("Disconnected by", addr[0], ':', addr[1])
-            print(f"Error: {e}")
+            print(f"Disconnected by {addr[0]}:{addr[1]} due to error: {e}")
             break
 
 # 서버 소켓 설정
@@ -45,19 +48,17 @@ ip = '127.0.0.1'
 port = 8080
 
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-# 소켓 에러 방지 옵션
 server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-
 server_socket.bind((ip, port))
 server_socket.listen()
 
-print('Server start')
+# 키 입력 (16바이트 AES 키)
+key_input = input("Enter a 16-byte key for encryption: ")
+key = key_input.encode()  # 문자열을 바이트로 변환
+
+print("Server started and waiting for clients...")
 
 while True:
     client_socket, addr = server_socket.accept()
-    print('Connected by', addr[0], ':', addr[1])
-    
-    # 새로운 클라이언트를 위한 스레드 생성
-    thread = threading.Thread(target=threaded, args=(client_socket, addr))
+    thread = threading.Thread(target=threaded, args=(client_socket, addr, key))
     thread.start()
