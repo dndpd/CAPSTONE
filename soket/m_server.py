@@ -25,7 +25,7 @@ def decrypt_data(key, ciphertext):
 # 클라이언트의 IP 주소를 이용해 MAC 주소 받아오기
 def get_mac_address(ip_address):
     arp_request = ARP(pdst=ip_address)
-    ether = Ether(dst="ff:ff:ff:ff:ff:ff")
+    ether = str(Ether(dst="ff:ff:ff:ff:ff:ff"))
     packet = ether/arp_request
     result = srp(packet, timeout=3, verbose=0)[0]
 
@@ -54,6 +54,8 @@ def threaded(client_socket, addr, key):
                 print(f'Disconnected by {addr[0]}:{addr[1]}')
                 break
 
+            print(f"Received encrypted data: {data}")  # 수신한 데이터 출력
+
             # 받은 데이터를 복호화
             try:
                 decrypted_message = decrypt_data(key, data)
@@ -81,6 +83,7 @@ def threaded(client_socket, addr, key):
             print(f"Disconnected by {addr[0]}:{addr[1]}")
             print(f"Error: {e}")
             break
+
 
 # 서버 소켓 설정
 ip = '192.168.4.1'
