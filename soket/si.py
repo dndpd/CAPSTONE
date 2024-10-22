@@ -36,8 +36,25 @@ def get_mac_address(ip_address):
 
 # MAC 주소를 파일로 저장하는 함수
 def save_mac_address(mac_address):
-    with open("client_mac_addresses.txt", "a") as file:
+    with open("banned_clients_mac.txt", "a") as file:
         file.write(f"{mac_address}\n")
+
+# txt 파일에서 연결 해제된 MAC 주소 읽기
+def get_key_by_mac(mac_address):
+    try:
+        with open("client_mac_addresses.txt","r") as file:
+            for line in file.readlines():
+                mac, saved_key = line.strip().split()
+                if mac == mac_address:
+                    return saved_key
+        return 0
+    except FileNotFoundError:
+        return None
+
+# 새로운 MAC 주소와 키를 파일에 저장하는 함수
+def save_mac_and_key(mac_address, key):
+    with open("client_mac_addresses.txt", "a") as file:
+        file.write(f"{mac_address} {key}\n"}
 
 # 클라이언트와 통신하는 스레드 함수
 def threaded(client_socket, addr, key):
@@ -45,13 +62,27 @@ def threaded(client_socket, addr, key):
 
     # 클라이언트의 IP 주소를 이용해 MAC 주소를 받아옴
     client_ip = addr[0]
+    client_mac = get_mac_address(client_ip)
+    if client_mac:
+        save_mac_address(client_mac)
+        print(f"MAC address {client_mac} saved to file.")
+    else:
+        print(f"Could not retrieve MAC Address for IP: {client_ip}")
+        client_socket.close()
+
+    # 연결된 MAC 주소의 연결 해제 횟수가 3 이상이면 강제 연결 해제
+    mac_count = get_key_by_mac(client_mac)
+    if mac_count >= 3:
+        print(f'Banned MAC Address, Disconnect\n')
+        client_socket.close()
+    
 
     while True:
         try:
             # 클라이언트로부터 암호화된 데이터를 수신
             data = client_socket.recv(1024)
             if not data:
-                print(f'Disconnected by {addr[0]}:{addr[1]}')
+                print(f'\nDisconnected by {addr[0]}:{addr[1]}\n')
                 break
 
             # 받은 데이터를 복호화
@@ -59,27 +90,20 @@ def threaded(client_socket, addr, key):
                 decrypted_message = decrypt_data(key, data)
                 print(f"Decrypted message from {addr[0]}:{addr[1]}: {decrypted_message}")
                 
-                # 올바른 암호화 메시지를 받으면 MAC 주소를 저장
-                client_mac = get_mac_address(client_ip)
-                if client_mac:
-                    save_mac_address(client_mac)
-                    print(f"MAC address {client_mac} saved to file.")
-                else:
-                    print(f"Could not retrieve MAC Address for IP: {client_ip}")
-                
                 # 응답도 암호화해서 전송
                 response = "Message received successfully.".encode()
                 encrypted_response = encrypt_data(key, response.decode())
                 client_socket.send(encrypted_response)
 
             except Exception as e:
-                print(f"Decryption failed: {e}. Disconnecting client {addr[0]}:{addr[1]}")
+                print(f"\nDecryption failed: {e}.\n Disconnecting client {addr[0]}:{addr[1]}\n")
+                save_mac_and_key(client_mac, mac_count)
                 client_socket.close()  # 복호화 실패 시 연결 끊기
                 break
 
         except ConnectionResetError as e:
-            print(f"Disconnected by {addr[0]}:{addr[1]}")
-            print(f"Error: {e}")
+            print(f"\nDisconnected by {addr[0]}:{addr[1]}\n")
+            print(f"\nError: {e}")
             break
 
 # 서버 소켓 설정
