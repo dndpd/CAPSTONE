@@ -60,6 +60,32 @@ EOL'
 echo "Updating /etc/default/hostapd to use the new configuration..."
 sudo sed -i 's|#DAEMON_CONF="|DAEMON_CONF="/etc/hostapd/hostapd.conf|' /etc/default/hostapd
 
+#!/bin/bash
+
+# IP 포워딩 활성화
+echo "Enabling IP forwarding..."
+sudo sed -i '/net.ipv4.ip_forward/s/^#//g' /etc/sysctl.conf
+sudo sed -i '/net.ipv4.ip_forward/s/0/1/' /etc/sysctl.conf
+
+# 변경 사항 적용
+sudo sysctl -p
+
+# NAT 설정 추가 (eth0 인터페이스를 유선 연결로 가정)
+echo "Setting up NAT for eth0..."
+sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+
+# iptables 규칙을 저장하여 부팅 시 유지되도록 설정
+echo "Saving iptables rules..."
+sudo sh -c "iptables-save > /etc/iptables.ipv4.nat"
+
+# 부팅 시 iptables 규칙 복원 설정
+echo "Configuring iptables to restore on boot..."
+if ! grep -q "iptables-restore < /etc/iptables.ipv4.nat" /etc/rc.local; then
+  sudo sed -i '$i iptables-restore < /etc/iptables.ipv4.nat\n' /etc/rc.local
+fi
+
+echo "IP forwarding and NAT setup complete."
+
 # hostapd 서비스 시작
 echo "Starting hostapd service..."
 sudo systemctl unmask hostapd
