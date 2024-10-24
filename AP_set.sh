@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# 필수 패키지 설치
-echo "Installing necessary packages: dnsmasq and hostapd..."
-sudo apt install -y dnsmasq hostapd
-
 # dnsmasq 및 hostapd 중지
 echo "Stopping dnsmasq and hostapd services..."
 sudo systemctl stop dnsmasq
