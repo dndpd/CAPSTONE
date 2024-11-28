@@ -43,7 +43,7 @@ def save_mac_address(mac_address):
 def get_key_by_mac(mac_address):
     try:
         with open("client_mac_addresses.txt", "r") as file:
-             lines=file.readlines()
+            lines = file.readlines()
             for line in reversed(lines):
                 mac, saved_key = line.strip().split()
                 if mac == mac_address:
@@ -55,7 +55,7 @@ def get_key_by_mac(mac_address):
 # 새로운 MAC 주소와 키를 파일에 저장하는 함수
 def save_mac_and_key(mac_address, key):
     with open("client_mac_addresses.txt", "a") as file:
-        file.write(f"{mac_address} {key}\n")  # 잘못된 괄호 수정
+        file.write(f"{mac_address} {key}\n")
 
 # 클라이언트와 통신하는 스레드 함수
 def threaded(client_socket, addr, key):
@@ -75,9 +75,11 @@ def threaded(client_socket, addr, key):
     # 연결된 MAC 주소의 연결 해제 횟수가 3 이상이면 강제 연결 해제
     mac_count = get_key_by_mac(client_mac)
     if mac_count is not None and mac_count >= 3:  # mac_count가 3 이상이면 차단
-        print(f'Banned MAC Address, Disconnect\n')
-        client_socket.close()
-        return  # 차단된 클라이언트는 함수 종료
+        print(f'MAC Address {client_mac} has reached 3 failures. Re-enter encryption key.')
+        new_key = input("Enter new encryption key for server: ")
+        key = hashlib.sha256(new_key.encode()).digest()
+        save_mac_and_key(client_mac, 0)  # 카운트를 초기화하고 새 키를 저장
+        print(f"New key set for MAC Address {client_mac}.")
     
     while True:
         try:
@@ -99,7 +101,8 @@ def threaded(client_socket, addr, key):
 
             except Exception as e:
                 print(f"\nDecryption failed: {e}.\n Disconnecting client {addr[0]}:{addr[1]}\n")
-                save_mac_and_key(client_mac, mac_count + 1 if mac_count is not None else 1)
+                mac_count = mac_count + 1 if mac_count is not None else 1
+                save_mac_and_key(client_mac, mac_count)
                 client_socket.close()  # 복호화 실패 시 연결 끊기
                 break
 
